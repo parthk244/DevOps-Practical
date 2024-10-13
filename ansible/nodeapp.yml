@@ -1,0 +1,41 @@
+---
+- name: Deploy Docker Container with NGINX
+  hosts: nodejsapp 
+  become: true  
+  tasks:
+    - name: Pull the Docker image from Docker Hub
+      docker_image:
+        name: patel244/nodejs
+        tag: v1
+        state: present
+        source: pull
+
+    - name: Run the Docker container
+      docker_container:
+        name: nodejs_nginx
+        image: patel244/nodejs:v1
+        state: started
+        restart_policy: always
+        published_ports:
+          - "3000:3000"  
+
+    - name: Configure NGINX to reverse proxy to Docker container
+      copy:
+        dest: /etc/nginx/sites-available/default
+        content: |
+          server {
+              listen 80;
+
+              location / {
+                  proxy_pass http://localhost:3000;  
+                  proxy_set_header Host $host;
+                  proxy_set_header X-Real-IP $remote_addr;
+                  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto $scheme;
+              }
+          }
+
+    - name: Reload NGINX to apply changes
+      service:
+        name: nginx
+        state: reloaded
